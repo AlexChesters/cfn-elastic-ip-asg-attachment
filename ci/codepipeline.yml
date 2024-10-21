@@ -1,0 +1,99 @@
+Description: pipeline to deploy cfn-elastic-ip-asg-attachment
+Resources:
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+      ManagedPolicyArns:
+        - !ImportValue ci-infrastructure-codebuild-base-iam-policy
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+        Location: !ImportValue ci-infrastructure-artifacts-bucket-name
+        Path: /artifacts/cfn-elastic-ip-asg-attachment/
+        Packaging: NONE
+        Name: build
+        NamespaceType: BUILD_ID
+      TimeoutInMinutes: 5
+      Description: Builds cfn-elastic-ip-asg-attachment
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: public.ecr.aws/codebuild/amazonlinux2-aarch64-standard:3.0
+        Type: ARM_CONTAINER
+        EnvironmentVariables:
+          - Value: !ImportValue ci-infrastructure-artifacts-bucket-name
+            Name: ARTIFACTS_BUCKET
+            Type: PLAINTEXT
+      Name: cfn-elastic-ip-asg-attachment
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: buildspec.yml
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Type: S3
+        Location: !ImportValue ci-infrastructure-artifacts-bucket-name
+      Name: cfn-elastic-ip-asg-attachment
+      RestartExecutionOnUpdate: true
+      RoleArn: !ImportValue ci-infrastructure-codepipeline-base-execution-iam-role
+      PipelineType: V2
+      Stages:
+        - Name: Source
+          Actions:
+            - ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeStarSourceConnection
+              OutputArtifacts:
+                - Name: GitHubSource
+              RunOrder: 1
+              Name: Clone-From-GitHub
+              Namespace: SourceVariables
+              Configuration:
+                ConnectionArn: !ImportValue ci-infrastructure-github-codestar-connection
+                FullRepositoryId: AlexChesters/cfn-elastic-ip-asg-attachment
+                BranchName: main
+                OutputArtifactFormat: CODE_ZIP
+        - Name: Build-Lambda
+          Actions:
+            - ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              InputArtifacts:
+                - Name: GitHubSource
+              OutputArtifacts:
+                - Name: BuiltSource
+              RunOrder: 1
+              Name: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+        - Name: Deploy-Lambdas-To-Live
+          Actions:
+            - ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              InputArtifacts:
+                - Name: BuiltSource
+              RunOrder: 1
+              Name: Deploy
+              Configuration:
+                ActionMode: REPLACE_ON_FAILURE
+                Capabilities: CAPABILITY_NAMED_IAM,CAPABILITY_AUTO_EXPAND
+                StackName: live-cfn-elastic-ip-asg-attachment-lambda
+                RoleArn: !ImportValue ci-infrastructure-codepipeline-base-cloudformation-iam-role
+                TemplatePath: BuiltSource::stacks/lambda.yml
+                TemplateConfiguration: BuiltSource::stacks/parameters/lambda/live.json

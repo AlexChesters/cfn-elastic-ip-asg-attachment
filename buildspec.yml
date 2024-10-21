@@ -1,0 +1,15 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+  build:
+    commands:
+      - python3 -m pip install --user pipx
+      - python3 -m pipx ensurepath
+      - export PATH=$PATH:/root/.local/bin
+      - pipx install poetry==1.8.2
+      - make template
+artifacts:
+  files: "**/*"

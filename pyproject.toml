@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "cfn-elastic-ip-asg-attachment"
+version = "0.1.0"
+description = "CloudFormation custom resource that allows you to attach Elastic IPs to EC2 Instances in an AutoScaling Group"
+authors = ["Alex Chesters <alex@cheste.rs>"]
+license = "MIT"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+crhelper = "^2.0.11"
+boto3 = "^1.35.44"
+aws-lambda-powertools = "^3.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

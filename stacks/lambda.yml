@@ -1,0 +1,64 @@
+Transform: AWS::Serverless-2016-10-31
+Description: Infrastructure for cfn-elastic-ip-asg-attachment
+Parameters:
+  Environment:
+    Type: String
+    Default: live
+    AllowedValues:
+      - test
+      - live
+  OrgId:
+    Type: String
+Conditions:
+  OrgIdIsPresent: !Not [!Equals [!Ref OrgId, ""]]
+Resources:
+  FunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      RoleName: !Sub "${Environment}-cfn-elastic-ip-asg-attachment"
+      Policies:
+        - PolicyName: cfn-elastic-ip-asg-attachment-policy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                Resource:
+                  - "*"
+  Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      Architectures:
+        - arm64
+      Handler: cfn_elastic_ip_asg_attachment.main.handler
+      Runtime: python3.12
+      CodeUri: ../build
+      Role: !GetAtt FunctionExecutionRole.Arn
+      FunctionName: !Sub "${Environment}-cfn-elastic-ip-asg-attachment"
+      MemorySize: 256
+      Timeout: 30
+      Tracing: Active
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: cfn-elastic-ip-asg-attachment
+          POWERTOOLS_TRACER_CAPTURE_ERROR: false
+          LOG_LEVEL: INFO
+  FunctionPermission:
+    Type: AWS::Lambda::Permission
+    Condition: OrgIdIsPresent
+    Properties:
+      Action: lambda:InvokeFunction
+      # despite being named FunctionName, this property also accepts an ARN
+      FunctionName: !GetAtt Function.Arn
+      Principal: "*"
+      PrincipalOrgID: !Ref OrgId

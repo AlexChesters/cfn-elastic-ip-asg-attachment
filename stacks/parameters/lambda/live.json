@@ -1,0 +1,10 @@
+{
+  "Parameters": {
+    "Environment": "live",
+    "OrgId": "o-hru7a3vwm2"
+  },
+  "Tags": {
+    "Project": "cfn-elastic-ip-asg-attachment",
+    "Environment": "live"
+  }
+}
