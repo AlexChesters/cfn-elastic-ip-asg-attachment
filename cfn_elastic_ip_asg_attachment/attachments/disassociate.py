@@ -10,6 +10,5 @@ def disassociate_address(session: boto3.Session, allocation_id: str):
     association_id = addresses[0]["AssociationId"]
 
     client.disassociate_address(
-        AssociationId=association_id,
-        DryRun=True
+        AssociationId=association_id
     )
